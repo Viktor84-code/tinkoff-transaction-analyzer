@@ -54,8 +54,24 @@ def filter_by_date(
     Returns:
         Отфильтрованный DataFrame
     """
-    mask = (df['Дата операции'] >= start_date) & (df['Дата операции'] <= end_date)
-    filtered = df[mask]
+    # Конвертируем даты в правильный формат
+    df_copy = df.copy()
+
+    # Преобразуем строки дат в datetime
+    # Формат в данных: '31.12.2021 16:44:00'
+    df_copy['Дата операции'] = pd.to_datetime(
+        df_copy['Дата операции'],
+        format='%d.%m.%Y %H:%M:%S',
+        errors='coerce'  # Если ошибка - ставим NaT
+    )
+
+    # Преобразуем входные даты
+    start = pd.to_datetime(start_date)
+    end = pd.to_datetime(end_date)
+
+    # Фильтруем
+    mask = (df_copy['Дата операции'] >= start) & (df_copy['Дата операции'] <= end)
+    filtered = df_copy[mask]
 
     logger.info(f"Фильтрация: {start_date} - {end_date}, найдено {len(filtered)} транзакций")
     return filtered
@@ -187,6 +203,50 @@ def main():
 
     except Exception as e:
         print(f"❌ Ошибка: {e}")
+
+def get_top_transactions(transactions_df: pd.DataFrame, n: int = 5) -> List[Dict[str, Any]]:
+    """
+    Возвращает топ-N транзакций по абсолютной сумме платежа.
+
+    Args:
+        transactions_df: DataFrame с транзакциями
+        n: количество возвращаемых транзакций
+
+    Returns:
+        List[Dict]: Список словарей с транзакциями
+    """
+    if transactions_df.empty:
+        logger.info("Пустой DataFrame, возвращаем пустой список")
+        return []
+
+    # Создаем копию чтобы не менять оригинал
+    top_df = transactions_df.copy()
+
+    # Добавляем столбец с абсолютными значениями
+    # Используем 'Сумма платежа' если есть, иначе 'Сумма операции'
+    if 'Сумма платежа' in top_df.columns:
+        amount_col = 'Сумма платежа'
+    elif 'Сумма операции' in top_df.columns:
+        amount_col = 'Сумма операции'
+    else:
+        error_msg = "Не найден столбец с суммой. Доступные столбцы: " + str(list(top_df.columns))
+        logger.error(error_msg)
+        raise KeyError(error_msg)
+
+    logger.info(f"Используем столбец '{amount_col}' для сортировки")
+    top_df['abs_amount'] = top_df[amount_col].abs()
+
+    # Сортируем по убыванию абсолютной суммы
+    top_df = top_df.sort_values('abs_amount', ascending=False).head(n)
+
+    # Удаляем временный столбец
+    top_df = top_df.drop(columns=['abs_amount'])
+
+    # Логируем результат
+    logger.info(f"Возвращаем топ-{n} транзакций")
+
+    # Возвращаем как список словарей
+    return top_df.to_dict('records')
 
 
 if __name__ == "__main__":
