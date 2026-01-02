@@ -1,8 +1,11 @@
-﻿[tool.poetry]
+[project]
 name = "tinkoff-transaction-analyzer"
 version = "0.1.0"
-description = "Bank transaction analyzer for Tinkoff data"
-authors = ["Viktor <your.email@example.com>"]
+description = "Bank transaction analyzer"
+authors = [{name = "Viktor"}]
+
+[tool.poetry]
+# Для совместимости
 
 [tool.poetry.dependencies]
 python = "^3.9"
